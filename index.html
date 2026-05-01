@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mon Budget</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: linear-gradient(135deg, #f8fafc, #eff6ff);
+      --primary: linear-gradient(135deg, #3b82f6, #9333ea);
+      --blue: #3b82f6; --purple: #9333ea;
+      --green: #10b981; --red: #ef4444; --orange: #f97316; --yellow: #f59e0b;
+      --gray-50: #f8fafc; --gray-100: #f1f5f9; --gray-200: #e2e8f0;
+      --gray-400: #94a3b8; --gray-600: #475569; --gray-700: #334155; --gray-800: #1e293b;
+      --white: #ffffff; --radius: 16px; --radius-sm: 8px;
+      --shadow: 0 2px 12px rgba(0,0,0,0.08); --shadow-md: 0 4px 24px rgba(0,0,0,0.12);
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); min-height: 100vh; color: var(--gray-800); font-size: 14px; }
+    #app { max-width: 900px; margin: 0 auto; padding: 16px; }
+    .card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 16px; }
+    .header { display: flex; align-items: center; gap: 12px; padding: 16px 0; margin-bottom: 8px; flex-wrap: wrap; }
+    .header-logo { font-size: 28px; }
+    .header-title { font-size: 22px; font-weight: 700; background: var(--primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .header-right { margin-left: auto; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .month-nav { display: flex; align-items: center; gap: 8px; background: var(--white); border-radius: 24px; padding: 6px 12px; box-shadow: var(--shadow); }
+    .month-nav button { background: none; border: none; cursor: pointer; font-size: 16px; color: var(--blue); padding: 4px 8px; border-radius: 50%; transition: background .2s; }
+    .month-nav button:hover { background: var(--gray-100); }
+    .month-nav span { font-weight: 600; font-size: 14px; min-width: 130px; text-align: center; }
+    .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); cursor: default; flex-shrink: 0; }
+    .sync-dot.offline { background: var(--orange); }
+    .tabs { display: flex; gap: 4px; background: var(--white); border-radius: 12px; padding: 4px; box-shadow: var(--shadow); margin-bottom: 16px; overflow-x: auto; }
+    .tab-btn { flex: 1; border: none; background: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--gray-600); white-space: nowrap; transition: all .2s; }
+    .tab-btn.active { background: var(--primary); color: white; }
+    .stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 16px; }
+    @media (max-width: 720px) { .stats-grid { grid-template-columns: repeat(2,1fr); } }
+    .stat-card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; }
+    .stat-label { font-size: 11px; color: var(--gray-600); font-weight: 500; text-transform: uppercase; margin-bottom: 6px; }
+    .stat-value { font-size: 20px; font-weight: 700; }
+    .stat-value.green { color: var(--green); } .stat-value.red { color: var(--red); }
+    .stat-sub { font-size: 11px; color: var(--gray-400); margin-top: 4px; }
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .section-title { font-size: 16px; font-weight: 600; }
+    input[type="text"], input[type="number"], input[type="date"], select { background: var(--white); border: 1px solid var(--gray-200); border-radius: 7px; padding: 7px 9px; font-size: 14px; outline: none; width: 100%; transition: border-color .2s, box-shadow .2s; font-family: inherit; color: var(--gray-800); }
+    input:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(59,130,246,.1); }
+    .btn { border: none; border-radius: 8px; padding: 8px 14px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all .2s; font-family: inherit; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { opacity: .9; }
+    .btn-ghost { background: none; color: var(--blue); border: 1px solid var(--gray-200); }
+    .btn-ghost:hover { background: var(--gray-50); }
+    .btn-danger { background: #fef2f2; color: var(--red); border: 1px solid #fecaca; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    .row-item { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--gray-100); }
+    .row-item:last-child { border-bottom: none; }
+    .drag-handle { color: var(--gray-400); cursor: grab; padding: 4px 2px; font-size: 14px; line-height: 1; flex-shrink: 0; user-select: none; }
+    .drag-handle:hover { color: var(--gray-600); }
+    .row-item.drag-over { border: 2px dashed var(--blue); border-radius: 8px; background: #eff6ff; }
+    .row-item.dragging { opacity: .4; }
+    .row-libelle { flex: 1; min-width: 0; }
+    .row-montant { width: 110px; flex-shrink: 0; }
+    .row-categorie { width: 140px; flex-shrink: 0; }
+    .row-date { width: 130px; flex-shrink: 0; }
+    .btn-delete { background: none; border: none; color: var(--gray-400); cursor: pointer; font-size: 18px; padding: 2px 4px; line-height: 1; }
+    .btn-delete:hover { color: var(--red); }
+    .progress-bar { height: 8px; border-radius: 4px; background: var(--gray-100); overflow: hidden; margin-top: 6px; }
+    .progress-fill { height: 100%; border-radius: 4px; transition: width .3s; }
+    .progress-fill.green { background: var(--green); } .progress-fill.orange { background: var(--orange); } .progress-fill.red { background: var(--red); }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
+    .modal { background: var(--white); border-radius: var(--radius); padding: 32px; max-width: 420px; width: 100%; box-shadow: var(--shadow-md); }
+    .modal h2 { font-size: 20px; margin-bottom: 8px; }
+    .modal p { color: var(--gray-600); margin-bottom: 16px; font-size: 14px; }
+    .badge-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; border: 1px solid; }
+    .savings-row { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 10px; margin-bottom: 8px; background: var(--gray-50); flex-wrap: wrap; }
+    .savings-livret-name { flex: 1; font-weight: 500; min-width: 120px; }
+    .savings-amount { width: 120px; flex-shrink: 0; }
+    .savings-balance { font-size: 13px; color: var(--gray-600); }
+    .savings-negative { color: var(--red); font-weight: 500; }
+    .repart-bar { display: flex; height: 16px; border-radius: 8px; overflow: hidden; margin-top: 8px; background: var(--gray-100); }
+    .repart-segment { height: 100%; transition: width .3s; }
+    .repart-legend { display: flex; gap: 12px; margin-top: 6px; flex-wrap: wrap; }
+    .repart-legend-item { display: flex; align-items: center; gap: 4px; font-size: 12px; }
+    .repart-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .show-hidden-link { font-size: 12px; color: var(--blue); background: none; border: none; cursor: pointer; padding: 4px 0; text-decoration: underline; font-family: inherit; }
+    .note-card { border: 1px solid var(--gray-200); border-radius: 10px; padding: 12px; margin-bottom: 8px; }
+    .note-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--gray-100); flex-wrap: wrap; gap: 8px; }
+    .settings-label { font-weight: 500; }
+    .settings-value { color: var(--gray-600); font-size: 13px; }
+    .chart-container { width: 100%; overflow-x: auto; }
+    svg { display: block; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--gray-100); font-size: 13px; }
+    th { font-weight: 600; color: var(--gray-600); font-size: 11px; text-transform: uppercase; }
+    tr:hover td { background: var(--gray-50); }
+    @media (max-width: 720px) {
+      #app { padding: 12px; }
+      .row-date, .row-categorie { width: 100px; }
+      .row-montant { width: 90px; }
+      .tab-btn { font-size: 11px; padding: 6px 6px; }
+      input[type="text"], input[type="number"], input[type="date"], select { font-size: 16px; min-height: 40px; }
+      .btn { min-height: 40px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="header"></div>
+    <div id="stats"></div>
+    <div id="tabs-bar"></div>
+    <div id="tab-content"></div>
+    <div id="hidden-links"></div>
+    <div id="modal"></div>
+  </div>
+  <script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, doc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+// ─── CONFIG ──────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyAsw3tAQsKffYdUGJSMVdz9IvmsGytk1nc",
+  authDomain: "mon-budget-895e4.firebaseapp.com",
+  projectId: "mon-budget-895e4",
+  storageBucket: "mon-budget-895e4.firebasestorage.app",
+  messagingSenderId: "961149295947",
+  appId: "1:961149295947:web:0f5be8c23b6b3de0ef1cce"
+};
+
+const CATEGORY_COLORS = {
+  'Logement':'#8b5cf6','Énergie':'#f59e0b','Télécoms':'#06b6d4',
+  'Assurances':'#ef4444','Abonnements':'#ec4899','Alimentation':'#10b981',
+  'Transport':'#3b82f6','Loisirs':'#f97316','Santé':'#14b8a6','Autre':'#6b7280'
+};
+const AVANTAGE_TYPES = {
+  'Chèques cadeaux':{icon:'🎀',bg:'#fff7ed',border:'#fdba74'},
+  'Chèques vacances':{icon:'🏖️',bg:'#eff6ff',border:'#93c5fd'},
+  'Carte cadeau':{icon:'🎁',bg:'#fdf4ff',border:'#e879f9'},
+  'Tickets restaurant':{icon:'🍽️',bg:'#f0fdf4',border:'#86efac'},
+  'Autre':{icon:'💳',bg:'#f8fafc',border:'#cbd5e1'}
+};
+const DEFAULT_FIXES = [
+  {libelle:'Loyer / Crédit immobilier',categorie:'Logement'},
+  {libelle:'Électricité',categorie:'Énergie'},{libelle:'Gaz',categorie:'Énergie'},
+  {libelle:'Eau',categorie:'Énergie'},{libelle:'Internet / Box',categorie:'Télécoms'},
+  {libelle:'Forfait mobile',categorie:'Télécoms'},
+  {libelle:'Assurance habitation',categorie:'Assurances'},
+  {libelle:'Assurance auto',categorie:'Assurances'},
+  {libelle:'Mutuelle santé',categorie:'Assurances'},
+  {libelle:'Netflix',categorie:'Abonnements'},
+  {libelle:'Spotify',categorie:'Abonnements'},
+  {libelle:'Salle de sport',categorie:'Abonnements'},
+];
+const CAT_FIXES = ['Logement','Énergie','Télécoms','Assurances','Abonnements','Autre'];
+const CAT_VARS  = ['Alimentation','Transport','Loisirs','Santé','Autre'];
+
+const fmt = v => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR'}).format(v||0);
+const uid = () => Math.random().toString(36).slice(2)+Date.now().toString(36);
+const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+// ─── STATE ───────────────────────────────────────────────────
+let codeSecret = localStorage.getItem('budgetCode')||null;
+let db = null, unsubscribe = null;
+let syncStatus = 'offline', lastSync = null, saveTimer = null;
+let activeTab = 'saisie';
+const today = new Date();
+let activeMois = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+
+let data = {
+  donnees:{}, livrets:[], notes:[], avantages:[],
+  budgetsCategories:[], ui:{masqueRappels:false,masqueAvantages:false,masqueBudgets:false}
+};
+
+// ─── DATA LAYER ──────────────────────────────────────────────
+function loadLocal(){
+  const raw=localStorage.getItem('budgetData');
+  if(!raw)return;
+  try{ data=migrateV1(JSON.parse(raw)); }catch(e){}
+}
+function saveLocal(){ localStorage.setItem('budgetData',JSON.stringify(data)); }
+function debounceFirebase(){ clearTimeout(saveTimer); saveTimer=setTimeout(saveFirebase,500); }
+
+async function saveFirebase(){
+  if(!db||!codeSecret)return;
+  try{
+    syncStatus='syncing'; renderSyncIndicator();
+    await setDoc(doc(db,'users',codeSecret,'data','budget'), JSON.parse(JSON.stringify(data)));
+    syncStatus='synced'; lastSync=new Date();
+  }catch(e){ syncStatus='offline'; }
+  renderSyncIndicator();
+}
+
+function saveData(){ saveLocal(); debounceFirebase(); }
+
+function startFirebaseSync(){
+  if(!db||!codeSecret)return;
+  if(unsubscribe)unsubscribe();
+  unsubscribe=onSnapshot(doc(db,'users',codeSecret,'data','budget'),(snap)=>{
+    if(snap.exists()){ data=migrateV1(snap.data()); saveLocal(); syncStatus='synced'; lastSync=new Date(); render(); renderSyncIndicator(); }
+  },()=>{ syncStatus='offline'; renderSyncIndicator(); });
+}
+
+// ─── MOIS DATA ───────────────────────────────────────────────
+function getMoisData(mois){
+  if(!data.donnees[mois]){
+    const sorted=Object.keys(data.donnees).sort();
+    const last=sorted[sorted.length-1];
+    if(last&&data.donnees[last]){
+      const src=data.donnees[last];
+      data.donnees[mois]={
+        revenus:(src.revenus||[]).map(r=>({...r,id:uid()})),
+        depensesFixes:(src.depensesFixes||[]).map(d=>({...d,id:uid()})),
+        depensesVariables:[],
+        versements:(src.versements||[]).map(v=>({...v,id:uid()}))
+      };
+    }else{
+      data.donnees[mois]={
+        revenus:[],
+        depensesFixes:DEFAULT_FIXES.map((d,i)=>({...d,id:uid(),montant:0,ordre:i})),
+        depensesVariables:[],
+        versements:data.livrets.map(l=>({id:uid(),livretId:l.id,montant:0}))
+      };
+    }
+    saveData();
+  }
+  return data.donnees[mois];
+}
+
+function patchField(section,id,key,val){
+  const m=getMoisData(activeMois);
+  const map={
+    revenus:m.revenus, depensesFixes:m.depensesFixes,
+    depensesVariables:m.depensesVariables, versements:m.versements,
+    livrets:data.livrets, notes:data.notes,
+    avantages:data.avantages, budgetsCategories:data.budgetsCategories
+  };
+  const arr=map[section];
+  const item=arr&&arr.find(x=>x.id===id);
+  if(item){ item[key]=val; saveData(); }
+}
+
+// ─── V1 MIGRATION ────────────────────────────────────────────
+function migrateV1(d){
+  if(!d)return data;
+  if(!d.budgetsCategories)d.budgetsCategories=[];
+  if(!d.ui)d.ui={masqueRappels:false,masqueAvantages:false,masqueBudgets:false};
+  if(!d.avantages)d.avantages=[];
+  if(!d.notes)d.notes=[];
+  if(!d.livrets)d.livrets=[];
+  if(!d.donnees)d.donnees={};
+  Object.values(d.donnees).forEach(m=>{
+    if(!m.revenus)m.revenus=[];
+    if(!m.depensesFixes)m.depensesFixes=[];
+    if(!m.depensesVariables)m.depensesVariables=[];
+    if(!m.versements)m.versements=[];
+    m.revenus.forEach((r,i)=>{ if(r.ordre===undefined)r.ordre=i; });
+    m.depensesFixes.forEach((dd,i)=>{ if(dd.ordre===undefined)dd.ordre=i; });
+    m.depensesVariables.forEach((dd,i)=>{ if(dd.ordre===undefined)dd.ordre=i; });
+  });
+  return d;
+}
+
+// ─── EXPORT / IMPORT ─────────────────────────────────────────
+function exportData(){
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=`budget_sauvegarde_${new Date().toISOString().slice(0,10)}.json`;
+  a.click(); URL.revokeObjectURL(url);
+}
+function importData(file){
+  const r=new FileReader();
+  r.onload=e=>{
+    try{ data=migrateV1(JSON.parse(e.target.result)); saveData(); render(); alert('Importation réussie !'); }
+    catch(err){ alert('Fichier invalide'); }
+  };
+  r.readAsText(file);
+}
+
+// ─── TOTALS ──────────────────────────────────────────────────
+function getTotals(){
+  const m=getMoisData(activeMois);
+  const revenus=(m.revenus||[]).reduce((s,r)=>s+(parseFloat(r.montant)||0),0);
+  const fixes=(m.depensesFixes||[]).reduce((s,d)=>s+(parseFloat(d.montant)||0),0);
+  const variables=(m.depensesVariables||[]).reduce((s,d)=>s+(parseFloat(d.montant)||0),0);
+  const epargne=(m.versements||[]).reduce((s,v)=>s+(parseFloat(v.montant)||0),0);
+  return {revenus,fixes,variables,epargne,depenses:fixes+variables,solde:revenus-fixes-variables-epargne};
+}
+
+// ─── MONTH HELPERS ───────────────────────────────────────────
+function moisLabel(mois){
+  const [y,m]=mois.split('-');
+  return new Date(parseInt(y),parseInt(m)-1,1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+}
+function prevMois(mois){ const [y,m]=mois.split('-').map(Number); const d=new Date(y,m-2,1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function nextMois(mois){ const [y,m]=mois.split('-').map(Number); const d=new Date(y,m,1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+
+// ─── AUTH MODAL ──────────────────────────────────────────────
+function showAuthModal(){
+  document.getElementById('modal').innerHTML=`
+    <div class="modal-overlay">
+      <div class="modal">
+        <h2>💰 Mon Budget</h2>
+        <p>Saisissez votre <strong>code secret</strong> pour accéder à vos données synchronisées entre appareils. Ce code est votre clé unique — s'il est perdu, vos données Firestore seront inaccessibles.</p>
+        <input type="text" id="code-input" placeholder="ex: mon-budget-2026" autocomplete="off" style="margin-bottom:8px">
+        <p style="font-size:12px;color:#f59e0b;margin-bottom:16px">⚠️ 6 caractères minimum, lettres/chiffres/tirets uniquement</p>
+        <button class="btn btn-primary" style="width:100%" onclick="window.submitCode()">Accéder à mes données →</button>
+        <div id="code-error" style="color:#ef4444;font-size:13px;margin-top:8px"></div>
+      </div>
+    </div>`;
+  setTimeout(()=>document.getElementById('code-input')?.focus(),100);
+}
+window.submitCode=function(){
+  const val=(document.getElementById('code-input').value||'').trim();
+  if(!/^[a-zA-Z0-9\-]{6,}$/.test(val)){
+    document.getElementById('code-error').textContent='Code invalide — 6+ caractères, lettres/chiffres/tirets.';
+    return;
+  }
+  codeSecret=val; localStorage.setItem('budgetCode',val);
+  document.getElementById('modal').innerHTML='';
+  initApp();
+};
+
+// ─── INIT ────────────────────────────────────────────────────
+async function initApp(){
+  const app=initializeApp(firebaseConfig);
+  db=getFirestore(app);
+  loadLocal();
+  startFirebaseSync();
+  render();
+}
+
+if(codeSecret){ initApp(); }else{ showAuthModal(); }
+
+// ─── SYNC INDICATOR ──────────────────────────────────────────
+function renderSyncIndicator(){
+  const el=document.getElementById('sync-dot');
+  if(!el)return;
+  el.className='sync-dot'+(syncStatus!=='synced'?' offline':'');
+  el.title=syncStatus==='synced'?`Synchronisé — ${lastSync?.toLocaleTimeString('fr-FR')}`:syncStatus==='syncing'?'Synchronisation...':'Hors ligne';
+}
+
+// ─── RENDER HEADER ───────────────────────────────────────────
+function renderHeader(){
+  const badges=Object.entries(AVANTAGE_TYPES).map(([type,cfg])=>{
+    const total=(data.avantages||[]).filter(a=>a.type===type).reduce((s,a)=>s+((parseFloat(a.montantInitial)||0)-(parseFloat(a.utilise)||0)),0);
+    return total>0?`<span class="badge" style="background:${cfg.bg};border-color:${cfg.border}">${cfg.icon} ${fmt(total)}</span>`:'';
+  }).join('');
+  document.getElementById('header').innerHTML=`
+    <div class="header">
+      <span class="header-logo">💰</span>
+      <span class="header-title">Mon Budget</span>
+      ${badges?`<div class="badge-row">${badges}</div>`:''}
+      <div class="header-right">
+        <div id="sync-dot" class="sync-dot${syncStatus!=='synced'?' offline':''}" title="${syncStatus==='synced'?'Synchronisé':'Hors ligne'}"></div>
+        <div class="month-nav">
+          <button onclick="window.navMois(-1)">‹</button>
+          <span>${moisLabel(activeMois)}</span>
+          <button onclick="window.navMois(1)">›</button>
+        </div>
+      </div>
+    </div>`;
+}
+window.navMois=function(dir){ activeMois=dir<0?prevMois(activeMois):nextMois(activeMois); render(); };
+
+// ─── RENDER STATS ────────────────────────────────────────────
+function renderStats(){
+  const t=getTotals();
+  const rev=t.revenus||1;
+  const pF=Math.max(0,Math.round(t.fixes/rev*100));
+  const pV=Math.max(0,Math.round(t.variables/rev*100));
+  const pE=Math.max(0,Math.round(t.epargne/rev*100));
+  document.getElementById('stats').innerHTML=`
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-label">Revenus</div><div class="stat-value green">${fmt(t.revenus)}</div></div>
+      <div class="stat-card"><div class="stat-label">Dépenses</div><div class="stat-value red">${fmt(t.depenses)}</div><div class="stat-sub">Fixes ${fmt(t.fixes)} · Var. ${fmt(t.variables)}</div></div>
+      <div class="stat-card"><div class="stat-label">Solde disponible</div><div class="stat-value ${t.solde>=0?'green':'red'}">${fmt(t.solde)}</div><div class="stat-sub">Épargne nette ${fmt(t.epargne)}</div></div>
+      <div class="stat-card">
+        <div class="stat-label">Répartition</div>
+        <div class="repart-bar">
+          <div class="repart-segment" style="width:${pF}%;background:#ef4444"></div>
+          <div class="repart-segment" style="width:${pV}%;background:#f97316"></div>
+          <div class="repart-segment" style="width:${pE}%;background:#3b82f6"></div>
+        </div>
+        <div class="repart-legend">
+          <span class="repart-legend-item"><span class="repart-dot" style="background:#ef4444"></span>Fixes ${pF}%</span>
+          <span class="repart-legend-item"><span class="repart-dot" style="background:#f97316"></span>Var ${pV}%</span>
+          <span class="repart-legend-item"><span class="repart-dot" style="background:#3b82f6"></span>Ép ${pE}%</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ─── RENDER TABS BAR ─────────────────────────────────────────
+function renderTabsBar(){
+  const tabs=[{id:'saisie',label:'✏️ Saisie'},{id:'epargne',label:'💰 Épargne'},{id:'graphiques',label:'📊 Graphiques'},{id:'historique',label:'📈 Historique'},{id:'reglages',label:'⚙️ Réglages'}];
+  document.getElementById('tabs-bar').innerHTML=`<div class="tabs">${tabs.map(t=>`<button class="tab-btn${activeTab===t.id?' active':''}" onclick="window.setTab('${t.id}')">${t.label}</button>`).join('')}</div>`;
+}
+window.setTab=function(tab){ activeTab=tab; render(); };
+
+// ─── HIDDEN LINKS ────────────────────────────────────────────
+function renderHiddenLinks(){
+  const links=[];
+  if(data.ui&&data.ui.masqueRappels)links.push(`<button class="show-hidden-link" onclick="window.toggleMask('masqueRappels')">+ Afficher Rappels annuels</button>`);
+  if(data.ui&&data.ui.masqueAvantages)links.push(`<button class="show-hidden-link" onclick="window.toggleMask('masqueAvantages')">+ Afficher Avantages & bons</button>`);
+  if(data.ui&&data.ui.masqueBudgets)links.push(`<button class="show-hidden-link" onclick="window.toggleMask('masqueBudgets')">+ Afficher Budgets par catégorie</button>`);
+  document.getElementById('hidden-links').innerHTML=links.length?`<div style="display:flex;gap:12px;padding:8px 0;flex-wrap:wrap">${links.join('')}</div>`:'';
+}
+
+// ─── MAIN RENDER ─────────────────────────────────────────────
+function render(){
+  renderHeader(); renderStats(); renderTabsBar(); renderHiddenLinks();
+  if(activeTab==='saisie')renderSaisie();
+  else if(activeTab==='epargne')renderEpargne();
+  else if(activeTab==='graphiques')renderGraphiques();
+  else if(activeTab==='historique')renderHistorique();
+  else if(activeTab==='reglages')renderReglages();
+}
+function refreshTotals(){ renderStats(); renderHiddenLinks(); }
+
+// ─── DRAG & DROP ─────────────────────────────────────────────
+let dragSrcSection=null, dragSrcId=null;
+
+function setupDrag(section){
+  const container=document.querySelector(`[data-drag-section="${section}"]`);
+  if(!container)return;
+  container.querySelectorAll('.row-item[data-id]').forEach(row=>{
+    row.draggable=true;
+    row.addEventListener('dragstart',e=>{ dragSrcSection=section; dragSrcId=row.dataset.id; row.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+    row.addEventListener('dragend',()=>{ row.classList.remove('dragging'); container.querySelectorAll('.row-item').forEach(r=>r.classList.remove('drag-over')); });
+    row.addEventListener('dragover',e=>{ e.preventDefault(); container.querySelectorAll('.row-item').forEach(r=>r.classList.remove('drag-over')); if(row.dataset.id!==dragSrcId)row.classList.add('drag-over'); e.dataTransfer.dropEffect='move'; });
+    row.addEventListener('drop',e=>{ e.preventDefault(); row.classList.remove('drag-over'); if(dragSrcId===row.dataset.id||dragSrcSection!==section)return; reorderRows(section,dragSrcId,row.dataset.id); });
+  });
+}
+
+function reorderRows(section,fromId,toId){
+  const m=getMoisData(activeMois);
+  const arr=section==='revenus'?m.revenus:section==='depensesFixes'?m.depensesFixes:m.depensesVariables;
+  const sorted=[...arr].sort((a,b)=>(a.ordre||0)-(b.ordre||0));
+  const fi=sorted.findIndex(x=>x.id===fromId), ti=sorted.findIndex(x=>x.id===toId);
+  if(fi===-1||ti===-1)return;
+  const [item]=sorted.splice(fi,1); sorted.splice(ti,0,item);
+  sorted.forEach((x,i)=>{ x.ordre=i; });
+  saveData(); render();
+}
+
+// ─── PATCH ───────────────────────────────────────────────────
+window.patch=(section,id,key,val)=>{
+  patchField(section,id,key,val);
+  if(key==='montant')refreshTotals();
+  if(key==='categorie')render();
+};
+
+// ─── ADD / DELETE ROWS ───────────────────────────────────────
+window.addRow=function(section){
+  const m=getMoisData(activeMois);
+  if(section==='revenus') m.revenus.push({id:uid(),libelle:'',montant:0,ordre:m.revenus.length});
+  else if(section==='depensesFixes') m.depensesFixes.push({id:uid(),libelle:'',montant:0,categorie:'Autre',ordre:m.depensesFixes.length});
+  else if(section==='depensesVariables') m.depensesVariables.push({id:uid(),libelle:'',montant:0,categorie:'Alimentation',date:new Date().toISOString().slice(0,10),ordre:m.depensesVariables.length});
+  saveData(); render();
+};
+window.deleteRow=function(section,id){
+  const m=getMoisData(activeMois);
+  if(section==='revenus')m.revenus=m.revenus.filter(r=>r.id!==id);
+  else if(section==='depensesFixes')m.depensesFixes=m.depensesFixes.filter(d=>d.id!==id);
+  else if(section==='depensesVariables')m.depensesVariables=m.depensesVariables.filter(d=>d.id!==id);
+  saveData(); render();
+};
+
+// ─── TOGGLE MASK ─────────────────────────────────────────────
+window.toggleMask=function(key){ if(data.ui)data.ui[key]=!data.ui[key]; saveData(); render(); };
+
+// ─── RENDER SAISIE ───────────────────────────────────────────
+function renderSaisie(){
+  const m=getMoisData(activeMois);
+  const catOpts=(cats,sel)=>cats.map(c=>`<option value="${c}"${c===sel?' selected':''}>${c}</option>`).join('');
+  const sorted=(arr)=>[...arr].sort((a,b)=>(a.ordre||0)-(b.ordre||0));
+
+  const revRows=sorted(m.revenus||[]).map(r=>`
+    <div class="row-item" data-id="${r.id}">
+      <span class="drag-handle" title="Glisser pour réordonner">☰</span>
+      <div class="row-libelle"><input type="text" value="${esc(r.libelle)}" placeholder="Libellé" oninput="window.patch('revenus','${r.id}','libelle',this.value)"></div>
+      <div class="row-montant"><input type="number" value="${r.montant||0}" step="0.01" placeholder="0" onchange="window.patch('revenus','${r.id}','montant',parseFloat(this.value)||0)"></div>
+      <button class="btn-delete" onclick="window.deleteRow('revenus','${r.id}')" title="Supprimer">×</button>
+    </div>`).join('');
+
+  const fixRows=sorted(m.depensesFixes||[]).map(d=>`
+    <div class="row-item" data-id="${d.id}">
+      <span class="drag-handle" title="Glisser pour réordonner">☰</span>
+      <div class="row-libelle"><input type="text" value="${esc(d.libelle)}" placeholder="Libellé" oninput="window.patch('depensesFixes','${d.id}','libelle',this.value)"></div>
+      <div class="row-montant"><input type="number" value="${d.montant||0}" step="0.01" placeholder="0" onchange="window.patch('depensesFixes','${d.id}','montant',parseFloat(this.value)||0)"></div>
+      <div class="row-categorie"><select onchange="window.patch('depensesFixes','${d.id}','categorie',this.value)">${catOpts(CAT_FIXES,d.categorie||'Autre')}</select></div>
+      <button class="btn-delete" onclick="window.deleteRow('depensesFixes','${d.id}')" title="Supprimer">×</button>
+    </div>`).join('');
+
+  const varRows=sorted(m.depensesVariables||[]).map(d=>`
+    <div class="row-item" data-id="${d.id}">
+      <span class="drag-handle" title="Glisser pour réordonner">☰</span>
+      <div class="row-libelle"><input type="text" value="${esc(d.libelle)}" placeholder="Libellé" oninput="window.patch('depensesVariables','${d.id}','libelle',this.value)"></div>
+      <div class="row-montant"><input type="number" value="${d.montant||0}" step="0.01" placeholder="0" onchange="window.patch('depensesVariables','${d.id}','montant',parseFloat(this.value)||0)"></div>
+      <div class="row-categorie"><select onchange="window.patch('depensesVariables','${d.id}','categorie',this.value)">${catOpts(CAT_VARS,d.categorie||'Alimentation')}</select></div>
+      <div class="row-date"><input type="date" value="${d.date||''}" onchange="window.patch('depensesVariables','${d.id}','date',this.value)"></div>
+      <button class="btn-delete" onclick="window.deleteRow('depensesVariables','${d.id}')" title="Supprimer">×</button>
+    </div>`).join('');
+
+  document.getElementById('tab-content').innerHTML=`
+    <div class="card">
+      <div class="section-header"><span class="section-title">💵 Revenus</span><button class="btn btn-ghost btn-sm" onclick="window.addRow('revenus')">+ Ajouter</button></div>
+      <div data-drag-section="revenus">${revRows||'<p style="color:#94a3b8;font-size:13px;padding:8px 0">Aucun revenu. Ajoutez-en un.</p>'}</div>
+    </div>
+    <div class="card">
+      <div class="section-header"><span class="section-title">📌 Dépenses fixes</span><button class="btn btn-ghost btn-sm" onclick="window.addRow('depensesFixes')">+ Ajouter</button></div>
+      <div data-drag-section="depensesFixes">${fixRows||'<p style="color:#94a3b8;font-size:13px;padding:8px 0">Aucune dépense fixe.</p>'}</div>
+    </div>
+    <div class="card">
+      <div class="section-header"><span class="section-title">🛒 Dépenses variables</span><button class="btn btn-ghost btn-sm" onclick="window.addRow('depensesVariables')">+ Ajouter</button></div>
+      <div data-drag-section="depensesVariables">${varRows||'<p style="color:#94a3b8;font-size:13px;padding:8px 0">Aucune dépense variable ce mois.</p>'}</div>
+    </div>
+    ${renderEpargneSection()}
+    ${(!data.ui||!data.ui.masqueBudgets)?renderBudgetsSection():''}
+    ${(!data.ui||!data.ui.masqueAvantages)?renderAvantagesSection():''}
+    ${(!data.ui||!data.ui.masqueRappels)?renderRappelsSection():''}
+  `;
+  setupDrag('revenus'); setupDrag('depensesFixes'); setupDrag('depensesVariables');
+}
+
+// ─── ÉPARGNE SECTION ─────────────────────────────────────────
+function renderEpargneSection(){
+  const m=getMoisData(activeMois);
+  const rows=(data.livrets||[]).map(l=>{
+    let v=m.versements&&m.versements.find(v=>v.livretId===l.id);
+    if(!v){ v={id:uid(),livretId:l.id,montant:0}; if(!m.versements)m.versements=[]; m.versements.push(v); }
+    const montant=parseFloat(v.montant)||0;
+    const isNeg=montant<0;
+    const projected=(parseFloat(l.solde)||0)+montant;
+    return `
+      <div class="savings-row">
+        <div class="savings-livret-name"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${l.couleur||'#3b82f6'};margin-right:8px;flex-shrink:0"></span>${esc(l.nom)}</div>
+        <div class="savings-amount"><input type="number" value="${v.montant||0}" step="0.01" style="${isNeg?'color:#ef4444;border-color:#fca5a5':''}" onchange="window.patchVersement('${v.id}','${l.id}',parseFloat(this.value)||0)"></div>
+        <div class="savings-balance ${isNeg?'savings-negative':''}">${isNeg?'➖ Retrait':'➕ Versement'} → ${fmt(projected)}</div>
+        <button class="btn-delete" onclick="window.deleteLivret('${l.id}')" title="Supprimer">×</button>
+      </div>`;
+  }).join('');
+  return `
+    <div class="card">
+      <div class="section-header"><span class="section-title">🏦 Épargne ce mois</span><button class="btn btn-ghost btn-sm" onclick="window.addLivret()">+ Livret</button></div>
+      ${rows}${!data.livrets||data.livrets.length===0?'<p style="color:#94a3b8;font-size:13px">Aucun livret. Ajoutez-en un.</p>':''}
+    </div>`;
+}
+window.patchVersement=function(vId,lId,montant){
+  const m=getMoisData(activeMois);
+  if(!m.versements)m.versements=[];
+  let v=m.versements.find(x=>x.id===vId);
+  if(!v){ v={id:vId,livretId:lId,montant}; m.versements.push(v); }else{ v.montant=montant; }
+  saveData(); refreshTotals(); render();
+};
+window.addLivret=function(){
+  const nom=prompt('Nom du livret :'); if(!nom)return;
+  const livret={id:uid(),nom,solde:0,couleur:'#3b82f6'};
+  if(!data.livrets)data.livrets=[];
+  data.livrets.push(livret);
+  const m=getMoisData(activeMois);
+  if(!m.versements)m.versements=[];
+  m.versements.push({id:uid(),livretId:livret.id,montant:0});
+  saveData(); render();
+};
+window.deleteLivret=function(id){
+  if(!confirm('Supprimer ce livret et tous ses versements ?'))return;
+  data.livrets=(data.livrets||[]).filter(l=>l.id!==id);
+  Object.values(data.donnees||{}).forEach(m=>{ if(m.versements)m.versements=m.versements.filter(v=>v.livretId!==id); });
+  saveData(); render();
+};
+
+// ─── BUDGETS SECTION ─────────────────────────────────────────
+function renderBudgetsSection(){
+  const m=getMoisData(activeMois);
+  const rows=(data.budgetsCategories||[]).map(b=>{
+    const spent=(m.depensesVariables||[]).filter(d=>d.categorie===b.categorie).reduce((s,d)=>s+(parseFloat(d.montant)||0),0);
+    const max=parseFloat(b.montantMax)||1;
+    const pct=Math.min(Math.round(spent/max*100),100);
+    const col=pct<70?'green':pct<100?'orange':'red';
+    const restant=max-spent;
+    return `
+      <div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:4px">
+          <span style="font-weight:600">${esc(b.categorie)}</span>
+          <span style="font-size:12px;color:#94a3b8">Budget ${fmt(max)} · Dépensé ${fmt(spent)} · <span style="color:${col==='red'?'#ef4444':col==='orange'?'#f97316':'#10b981'};font-weight:600">${restant>=0?'Restant':'Dépassement'} ${fmt(Math.abs(restant))}</span></span>
+          <button class="btn-delete" onclick="window.deleteBudget('${b.id}')" title="Supprimer">×</button>
+        </div>
+        <div class="progress-bar"><div class="progress-fill ${col}" style="width:${pct}%"></div></div>
+      </div>`;
+  }).join('');
+  return `
+    <div class="card">
+      <div class="section-header">
+        <span class="section-title">🎯 Budgets par catégorie</span>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" onclick="window.addBudget()">+ Ajouter</button>
+          <button class="btn btn-ghost btn-sm" onclick="window.toggleMask('masqueBudgets')">👁️ Masquer</button>
+        </div>
+      </div>
+      ${rows}${!data.budgetsCategories||data.budgetsCategories.length===0?'<p style="color:#94a3b8;font-size:13px">Aucun budget défini.</p>':''}
+    </div>`;
+}
+window.addBudget=function(){
+  const cat=prompt('Catégorie :\n'+CAT_VARS.join(', '));
+  if(!cat)return;
+  if(!CAT_VARS.includes(cat)){ alert('Catégorie invalide. Choisir parmi : '+CAT_VARS.join(', ')); return; }
+  const montant=parseFloat(prompt('Budget mensuel (€) :'));
+  if(!montant||montant<=0)return;
+  if(!data.budgetsCategories)data.budgetsCategories=[];
+  data.budgetsCategories.push({id:uid(),categorie:cat,montantMax:montant});
+  saveData(); render();
+};
+window.deleteBudget=function(id){ data.budgetsCategories=(data.budgetsCategories||[]).filter(b=>b.id!==id); saveData(); render(); };
+
+// ─── AVANTAGES SECTION ───────────────────────────────────────
+function renderAvantagesSection(){
+  const rows=(data.avantages||[]).map(a=>{
+    const cfg=AVANTAGE_TYPES[a.type]||AVANTAGE_TYPES['Autre'];
+    const restant=(parseFloat(a.montantInitial)||0)-(parseFloat(a.utilise)||0);
+    return `
+      <div class="note-card" style="background:${cfg.bg};border-color:${cfg.border}">
+        <div class="note-header">
+          <span>${cfg.icon} <strong>${esc(a.type)}</strong>${a.expiration?` <span style="font-size:12px;color:#94a3b8">exp. ${a.expiration}</span>`:''}</span>
+          <button class="btn-delete" onclick="window.deleteAvantage('${a.id}')" title="Supprimer">×</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+          <div><div style="color:#94a3b8;font-size:12px;margin-bottom:4px">Montant initial</div><input type="number" value="${a.montantInitial||0}" step="0.01" onchange="window.patch('avantages','${a.id}','montantInitial',parseFloat(this.value)||0)"></div>
+          <div><div style="color:#94a3b8;font-size:12px;margin-bottom:4px">Utilisé</div><input type="number" value="${a.utilise||0}" step="0.01" onchange="window.patch('avantages','${a.id}','utilise',parseFloat(this.value)||0)"></div>
+          <div><div style="color:#94a3b8;font-size:12px;margin-bottom:4px">Restant</div><div style="font-weight:700;color:${restant>=0?'#10b981':'#ef4444'};padding:8px 0;font-size:16px">${fmt(restant)}</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 2fr;gap:8px">
+          <input type="date" value="${a.expiration||''}" onchange="window.patch('avantages','${a.id}','expiration',this.value)" placeholder="Expiration">
+          <input type="text" value="${esc(a.note)}" placeholder="Note" oninput="window.patch('avantages','${a.id}','note',this.value)">
+        </div>
+      </div>`;
+  }).join('');
+  return `
+    <div class="card">
+      <div class="section-header">
+        <span class="section-title">🎁 Avantages & bons</span>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" onclick="window.addAvantage()">+ Ajouter</button>
+          <button class="btn btn-ghost btn-sm" onclick="window.toggleMask('masqueAvantages')">👁️ Masquer</button>
+        </div>
+      </div>
+      ${rows}${!data.avantages||data.avantages.length===0?'<p style="color:#94a3b8;font-size:13px">Aucun avantage.</p>':''}
+    </div>`;
+}
+window.addAvantage=function(){
+  const types=Object.keys(AVANTAGE_TYPES);
+  const type=prompt('Type :\n'+types.join('\n'));
+  if(!type||!types.includes(type))return;
+  if(!data.avantages)data.avantages=[];
+  data.avantages.push({id:uid(),type,montantInitial:0,utilise:0,expiration:'',note:''});
+  saveData(); render();
+};
+window.deleteAvantage=function(id){ data.avantages=(data.avantages||[]).filter(a=>a.id!==id); saveData(); render(); };
+
+// ─── RAPPELS SECTION ─────────────────────────────────────────
+function renderRappelsSection(){
+  const todayStr=new Date().toISOString().slice(0,10);
+  const rows=(data.notes||[]).map(n=>{
+    const urgent=n.dateRenouv&&n.dateRenouv<=todayStr;
+    return `
+      <div class="note-card" style="${urgent?'border-color:#fca5a5;background:#fef2f2':''}">
+        <div class="note-header">
+          <input type="text" value="${esc(n.libelle)}" placeholder="Nom de l'abonnement" style="font-weight:500;border:none;padding:0;background:transparent" oninput="window.patch('notes','${n.id}','libelle',this.value)">
+          <button class="btn-delete" onclick="window.deleteNote('${n.id}')" title="Supprimer">×</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 2fr;gap:8px">
+          <input type="number" value="${n.montant||0}" placeholder="Montant €" step="0.01" onchange="window.patch('notes','${n.id}','montant',parseFloat(this.value)||0)">
+          <input type="date" value="${n.dateRenouv||''}" onchange="window.patch('notes','${n.id}','dateRenouv',this.value)">
+          <input type="text" value="${esc(n.commentaire)}" placeholder="Commentaire" oninput="window.patch('notes','${n.id}','commentaire',this.value)">
+        </div>
+        ${urgent?'<div style="color:#dc2626;font-size:12px;margin-top:6px;font-weight:500">⚠️ Renouvellement dépassé ou aujourd\'hui</div>':''}
+      </div>`;
+  }).join('');
+  return `
+    <div class="card">
+      <div class="section-header">
+        <span class="section-title">🔔 Rappels annuels</span>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" onclick="window.addNote()">+ Ajouter</button>
+          <button class="btn btn-ghost btn-sm" onclick="window.toggleMask('masqueRappels')">👁️ Masquer</button>
+        </div>
+      </div>
+      ${rows}${!data.notes||data.notes.length===0?'<p style="color:#94a3b8;font-size:13px">Aucun rappel.</p>':''}
+    </div>`;
+}
+window.addNote=function(){ if(!data.notes)data.notes=[]; data.notes.push({id:uid(),libelle:'',montant:0,dateRenouv:'',commentaire:''}); saveData(); render(); };
+window.deleteNote=function(id){ data.notes=(data.notes||[]).filter(n=>n.id!==id); saveData(); render(); };
+
+// ─── ÉPARGNE TAB ─────────────────────────────────────────────
+function renderEpargne(){
+  const total=(data.livrets||[]).reduce((s,l)=>s+(parseFloat(l.solde)||0),0);
+  const cards=(data.livrets||[]).map(l=>{
+    const m=getMoisData(activeMois);
+    const versement=(m.versements||[]).filter(v=>v.livretId===l.id).reduce((s,v)=>s+(parseFloat(v.montant)||0),0);
+    const projected=(parseFloat(l.solde)||0)+versement;
+    return `
+      <div class="card" style="border-top:4px solid ${l.couleur||'#3b82f6'}">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:16px;height:16px;border-radius:50%;background:${l.couleur||'#3b82f6'};flex-shrink:0"></div>
+            <input type="text" value="${esc(l.nom)}" style="font-size:18px;font-weight:700;border:none;padding:0;background:transparent;min-width:80px" oninput="window.patch('livrets','${l.id}','nom',this.value)">
+          </div>
+          <button class="btn btn-danger btn-sm" onclick="window.deleteLivret('${l.id}')">Supprimer</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+          <div class="stat-card" style="box-shadow:none;border:1px solid #e2e8f0"><div class="stat-label">Solde actuel</div><div class="stat-value" style="color:${l.couleur||'#3b82f6'}">${fmt(l.solde)}</div></div>
+          <div class="stat-card" style="box-shadow:none;border:1px solid #e2e8f0"><div class="stat-label">Ce mois</div><div class="stat-value ${versement<0?'red':'green'}">${versement<0?'➖':'➕'} ${fmt(Math.abs(versement))}</div></div>
+          <div class="stat-card" style="box-shadow:none;border:1px solid #e2e8f0"><div class="stat-label">Solde projeté</div><div class="stat-value" style="color:${l.couleur||'#3b82f6'}">${fmt(projected)}</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <label style="font-size:13px;color:#94a3b8">Mettre à jour le solde :</label>
+          <input type="number" value="${l.solde||0}" step="0.01" style="width:140px" onchange="window.updateSolde('${l.id}',parseFloat(this.value)||0)">
+          <label style="font-size:13px;color:#94a3b8">Couleur :</label>
+          <input type="color" value="${l.couleur||'#3b82f6'}" style="width:36px;height:36px;border:none;cursor:pointer;border-radius:6px;padding:2px" onchange="window.patch('livrets','${l.id}','couleur',this.value)">
+        </div>
+      </div>`;
+  }).join('');
+  document.getElementById('tab-content').innerHTML=`
+    <div class="card">
+      <div class="section-header"><span class="section-title">💰 Épargne totale</span><button class="btn btn-primary btn-sm" onclick="window.addLivret()">+ Nouveau livret</button></div>
+      <div class="stat-value green" style="font-size:32px;margin-top:4px">${fmt(total)}</div>
+    </div>
+    ${cards}
+    ${!data.livrets||data.livrets.length===0?'<div class="card"><p style="color:#94a3b8">Aucun livret. Créez-en un ci-dessus.</p></div>':''}`;
+}
+window.updateSolde=function(id,val){ const l=(data.livrets||[]).find(x=>x.id===id); if(l){l.solde=val;saveData();renderEpargne();} };
+
+// ─── GRAPHIQUES TAB ──────────────────────────────────────────
+function renderGraphiques(){
+  const m=getMoisData(activeMois);
+  const catTotals={};
+  [...(m.depensesFixes||[]),...(m.depensesVariables||[])].forEach(d=>{ if(d.categorie)catTotals[d.categorie]=(catTotals[d.categorie]||0)+(parseFloat(d.montant)||0); });
+  const total=Object.values(catTotals).reduce((s,v)=>s+v,0)||1;
+
+  const moisList=[]; let mo=activeMois;
+  for(let i=0;i<6;i++){ moisList.unshift(mo); mo=prevMois(mo); }
+  const barData=moisList.map(mo=>{
+    const md=data.donnees&&data.donnees[mo];
+    if(!md)return{mois:mo,revenus:0,depenses:0};
+    const rev=(md.revenus||[]).reduce((s,r)=>s+(parseFloat(r.montant)||0),0);
+    const dep=[...(md.depensesFixes||[]),...(md.depensesVariables||[])].reduce((s,d)=>s+(parseFloat(d.montant)||0),0);
+    return{mois:mo,revenus:rev,depenses:dep};
+  });
+
+  const legend=Object.entries(catTotals).filter(([,v])=>v>0).sort(([,a],[,b])=>b-a)
+    .map(([cat,val])=>`<div class="repart-legend-item"><div class="repart-dot" style="background:${CATEGORY_COLORS[cat]||'#6b7280'}"></div><span>${cat} ${fmt(val)}</span></div>`).join('');
+
+  document.getElementById('tab-content').innerHTML=`
+    <div class="card">
+      <div class="section-title" style="margin-bottom:16px">🥧 Dépenses par catégorie — ${moisLabel(activeMois)}</div>
+      ${Object.keys(catTotals).length===0?'<p style="color:#94a3b8;font-size:13px">Aucune dépense ce mois.</p>':`
+      <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap">
+        <div class="chart-container" style="max-width:260px">${buildPieSVG(catTotals,total,110)}</div>
+        <div style="display:flex;flex-direction:column;gap:8px;padding-top:16px">${legend}</div>
+      </div>`}
+    </div>
+    <div class="card">
+      <div class="section-title" style="margin-bottom:16px">📊 Revenus vs Dépenses — 6 derniers mois</div>
+      <div class="chart-container">${buildBarSVG(barData)}</div>
+      <div class="repart-legend" style="margin-top:12px">
+        <span class="repart-legend-item"><span class="repart-dot" style="background:#10b981"></span>Revenus</span>
+        <span class="repart-legend-item"><span class="repart-dot" style="background:#ef4444"></span>Dépenses</span>
+      </div>
+    </div>`;
+}
+function buildPieSVG(catTotals,total,r){
+  const cx=r+20,cy=r+20,size=(r+20)*2;
+  let start=-Math.PI/2;
+  const slices=Object.entries(catTotals).filter(([,v])=>v>0).sort(([,a],[,b])=>b-a).map(([cat,val])=>{
+    const angle=(val/total)*2*Math.PI;
+    if(angle<0.01)return '';
+    const x1=cx+r*Math.cos(start),y1=cy+r*Math.sin(start);
+    start+=angle;
+    const x2=cx+r*Math.cos(start),y2=cy+r*Math.sin(start);
+    return `<path d="M${cx},${cy} L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 ${angle>Math.PI?1:0},1 ${x2.toFixed(1)},${y2.toFixed(1)} Z" fill="${CATEGORY_COLORS[cat]||'#6b7280'}" stroke="white" stroke-width="2"><title>${cat}: ${fmt(val)}</title></path>`;
+  });
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${slices.join('')}</svg>`;
+}
+function buildBarSVG(barData){
+  const W=540,H=180,PAD=40,BW=28,GAP=8;
+  const maxVal=Math.max(...barData.map(d=>Math.max(d.revenus,d.depenses)),1);
+  const bars=barData.map((d,i)=>{
+    const x=PAD+i*(BW*2+GAP+16);
+    const rH=Math.max(2,Math.round(d.revenus/maxVal*(H-PAD)));
+    const dH=Math.max(d.depenses>0?2:0,Math.round(d.depenses/maxVal*(H-PAD)));
+    return `<rect x="${x}" y="${H-PAD-rH}" width="${BW}" height="${rH}" fill="#10b981" rx="3"><title>Revenus ${fmt(d.revenus)}</title></rect>
+    <rect x="${x+BW+4}" y="${H-PAD-dH}" width="${BW}" height="${dH}" fill="#ef4444" rx="3"><title>Dépenses ${fmt(d.depenses)}</title></rect>
+    <text x="${x+BW}" y="${H-4}" font-size="11" fill="#94a3b8" text-anchor="middle">${d.mois.slice(5)}</text>`;
+  }).join('');
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="max-width:100%"><line x1="${PAD}" y1="0" x2="${PAD}" y2="${H-PAD}" stroke="#e2e8f0"/><line x1="${PAD}" y1="${H-PAD}" x2="${W}" y2="${H-PAD}" stroke="#e2e8f0"/>${bars}</svg>`;
+}
+
+// ─── HISTORIQUE TAB ──────────────────────────────────────────
+function renderHistorique(){
+  const moisList=Object.keys(data.donnees||{}).sort().reverse();
+  const mRow=m=>{
+    const md=data.donnees[m];
+    const rev=(md.revenus||[]).reduce((s,r)=>s+(parseFloat(r.montant)||0),0);
+    const fix=(md.depensesFixes||[]).reduce((s,d)=>s+(parseFloat(d.montant)||0),0);
+    const vari=(md.depensesVariables||[]).reduce((s,d)=>s+(parseFloat(d.montant)||0),0);
+    const ep=(md.versements||[]).reduce((s,v)=>s+(parseFloat(v.montant)||0),0);
+    const solde=rev-fix-vari-ep;
+    return `<tr><td style="font-weight:500">${moisLabel(m)}</td><td style="color:#10b981">${fmt(rev)}</td><td style="color:#ef4444">${fmt(fix)}</td><td style="color:#f97316">${fmt(vari)}</td><td style="color:#3b82f6">${fmt(ep)}</td><td style="color:${solde>=0?'#10b981':'#ef4444'};font-weight:600">${fmt(solde)}</td></tr>`;
+  };
+  const years={};
+  moisList.forEach(m=>{ const y=m.slice(0,4); const md=data.donnees[m]; if(!years[y])years[y]={rev:0,fix:0,vari:0,ep:0};
+    years[y].rev+=(md.revenus||[]).reduce((s,r)=>s+(parseFloat(r.montant)||0),0);
+    years[y].fix+=(md.depensesFixes||[]).reduce((s,d)=>s+(parseFloat(d.montant)||0),0);
+    years[y].vari+=(md.depensesVariables||[]).reduce((s,d)=>s+(parseFloat(d.montant)||0),0);
+    years[y].ep+=(md.versements||[]).reduce((s,v)=>s+(parseFloat(v.montant)||0),0);
+  });
+  const yRow=([y,d])=>{ const s=d.rev-d.fix-d.vari-d.ep; return `<tr><td style="font-weight:600">${y}</td><td style="color:#10b981">${fmt(d.rev)}</td><td style="color:#ef4444">${fmt(d.fix)}</td><td style="color:#f97316">${fmt(d.vari)}</td><td style="color:#3b82f6">${fmt(d.ep)}</td><td style="color:${s>=0?'#10b981':'#ef4444'};font-weight:600">${fmt(s)}</td></tr>`; };
+  const thead='<thead><tr><th>Période</th><th>Revenus</th><th>Fixes</th><th>Variables</th><th>Épargne</th><th>Solde</th></tr></thead>';
+  document.getElementById('tab-content').innerHTML=`
+    <div class="card"><div class="section-title" style="margin-bottom:16px">📅 Historique mensuel</div><div style="overflow-x:auto"><table>${thead}<tbody>${moisList.length?moisList.map(mRow).join(''):'<tr><td colspan="6" style="color:#94a3b8">Aucune donnée</td></tr>'}</tbody></table></div></div>
+    <div class="card"><div class="section-title" style="margin-bottom:16px">📆 Récapitulatif annuel</div><div style="overflow-x:auto"><table>${thead}<tbody>${Object.keys(years).length?Object.entries(years).sort(([a],[b])=>b.localeCompare(a)).map(yRow).join(''):'<tr><td colspan="6" style="color:#94a3b8">Aucune donnée</td></tr>'}</tbody></table></div></div>`;
+}
+
+// ─── RÉGLAGES TAB ────────────────────────────────────────────
+function renderReglages(){
+  const syncLabel=syncStatus==='synced'?`☁️ Synchronisé${lastSync?' — '+lastSync.toLocaleTimeString('fr-FR'):''}`:syncStatus==='syncing'?'🔄 En cours...':'⚠️ Hors ligne';
+  document.getElementById('tab-content').innerHTML=`
+    <div class="card">
+      <div class="section-title" style="margin-bottom:16px">⚙️ Réglages</div>
+      <div class="settings-row">
+        <span class="settings-label">Code secret</span>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <code style="background:#f1f5f9;padding:4px 12px;border-radius:6px;font-size:13px;font-family:monospace">${esc(codeSecret)}</code>
+          <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText('${esc(codeSecret)}').then(()=>{const b=event.target;b.textContent='✓ Copié';setTimeout(()=>b.textContent='📋 Copier',2000)})">📋 Copier</button>
+          <button class="btn btn-ghost btn-sm" onclick="window.changeCode()">Changer</button>
+        </div>
+      </div>
+      <div class="settings-row"><span class="settings-label">Synchronisation Firebase</span><span class="settings-value">${syncLabel}</span></div>
+      <div class="settings-row">
+        <span class="settings-label">Données</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="window.doExport()">⬇️ Exporter JSON</button>
+          <label class="btn btn-ghost btn-sm" style="cursor:pointer">⬆️ Importer JSON<input type="file" accept=".json" style="display:none" onchange="window.doImport(this.files[0])"></label>
+        </div>
+      </div>
+      <div class="settings-row"><span class="settings-label">Réinitialiser ${moisLabel(activeMois)}</span><button class="btn btn-danger btn-sm" onclick="window.resetMois()">Réinitialiser ce mois</button></div>
+      <div class="settings-row" style="border-bottom:none"><span class="settings-label">Tout réinitialiser</span><button class="btn btn-danger btn-sm" onclick="window.resetAll()">⚠️ Tout supprimer</button></div>
+    </div>
+    <div class="card" style="background:#fffbeb;border:1px solid #fcd34d">
+      <p style="font-size:13px;color:#92400e">⚠️ <strong>Important :</strong> Votre code secret <strong><code>${esc(codeSecret)}</code></strong> est votre unique clé d'accès aux données Firestore. Si vous le perdez, vos données seront inaccessibles. Notez-le quelque part en sécurité.</p>
+    </div>
+    <div class="card">
+      <div class="section-title" style="margin-bottom:12px">🔧 Règles Firestore à coller</div>
+      <p style="font-size:13px;color:#475569;margin-bottom:12px">Firebase Console → votre projet → Firestore Database → Règles → coller le texte ci-dessous → Publier</p>
+      <pre style="background:#1e293b;color:#e2e8f0;padding:16px;border-radius:8px;font-size:12px;overflow-x:auto;line-height:1.6">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/data/{document=**} {
+      allow read, write: if true;
+    }
+  }
+}</pre>
+    </div>`;
+}
+window.changeCode=function(){
+  const c=prompt('Nouveau code secret (6+ caractères, lettres/chiffres/tirets) :');
+  if(!c)return;
+  if(!/^[a-zA-Z0-9\-]{6,}$/.test(c)){ alert('Code invalide — 6+ caractères, lettres/chiffres/tirets uniquement.'); return; }
+  if(!confirm(`Changer le code pour "${c}" ?\n\nVos données seront déplacées vers ce nouveau code sur Firestore. L'ancien code ne donnera plus accès à ces données.`))return;
+  codeSecret=c; localStorage.setItem('budgetCode',c);
+  if(unsubscribe)unsubscribe();
+  startFirebaseSync(); saveFirebase(); render();
+};
+window.doExport=exportData;
+window.doImport=function(file){ if(file)importData(file); };
+window.resetMois=function(){
+  if(!confirm(`Réinitialiser toutes les données de ${moisLabel(activeMois)} ?\nCette action est irréversible.`))return;
+  if(data.donnees)delete data.donnees[activeMois]; saveData(); render();
+};
+window.resetAll=function(){
+  if(!confirm('Supprimer TOUTES vos données ? Cette action est irréversible.'))return;
+  if(!confirm('Dernière confirmation — toutes les données seront définitivement supprimées.'))return;
+  data={donnees:{},livrets:[],notes:[],avantages:[],budgetsCategories:[],ui:{masqueRappels:false,masqueAvantages:false,masqueBudgets:false}};
+  saveData(); render();
+};
+  </script>
+</body>
+</html>
