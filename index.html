@@ -189,13 +189,22 @@ async function saveFirebase(){
   renderSyncIndicator();
 }
 
-function saveData(){ saveLocal(); debounceFirebase(); }
+function saveData(){ lastLocalSave=Date.now(); saveLocal(); debounceFirebase(); }
+
+let lastLocalSave = 0;
 
 function startFirebaseSync(){
   if(!db||!codeSecret)return;
   if(unsubscribe)unsubscribe();
   unsubscribe=onSnapshot(doc(db,'users',codeSecret,'data','budget'),(snap)=>{
-    if(snap.exists()){ data=migrateV1(snap.data()); saveLocal(); syncStatus='synced'; lastSync=new Date(); render(); renderSyncIndicator(); }
+    if(snap.exists()){
+      // Skip re-render if triggered by our own write (within 2s) or user is typing
+      const isTyping = document.activeElement && (document.activeElement.tagName==='INPUT'||document.activeElement.tagName==='TEXTAREA'||document.activeElement.tagName==='SELECT');
+      const isOwnWrite = (Date.now()-lastLocalSave) < 2000;
+      data=migrateV1(snap.data()); saveLocal(); syncStatus='synced'; lastSync=new Date();
+      if(!isTyping && !isOwnWrite) render();
+      renderSyncIndicator();
+    }
   },()=>{ syncStatus='offline'; renderSyncIndicator(); });
 }
 
