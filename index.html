@@ -133,7 +133,7 @@ const firebaseConfig = {
 const CATEGORY_COLORS = {
   'Logement':'#8b5cf6','Énergie':'#f59e0b','Télécoms':'#06b6d4',
   'Assurances':'#ef4444','Abonnements':'#ec4899','Alimentation':'#10b981',
-  'Transport':'#3b82f6','Loisirs':'#f97316','Santé':'#14b8a6','Autre':'#6b7280'
+  'Transport':'#3b82f6','Loisirs':'#f97316','Santé':'#14b8a6','Cosmétiques':'#f43f8e','Autre':'#6b7280'
 };
 const AVANTAGE_TYPES = {
   'Chèques cadeaux':{icon:'🎀',bg:'#fff7ed',border:'#fdba74'},
@@ -155,7 +155,7 @@ const DEFAULT_FIXES = [
   {libelle:'Salle de sport',categorie:'Abonnements'},
 ];
 const CAT_FIXES = ['Logement','Énergie','Télécoms','Assurances','Abonnements','Autre'];
-const CAT_VARS  = ['Alimentation','Transport','Loisirs','Santé','Autre'];
+const CAT_VARS  = ['Alimentation','Transport','Loisirs','Santé','Cosmétiques','Autre'];
 
 const fmt = v => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR'}).format(v||0);
 const uid = () => Math.random().toString(36).slice(2)+Date.now().toString(36);
