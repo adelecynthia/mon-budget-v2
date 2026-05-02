@@ -725,12 +725,12 @@ function renderEpargne(){
     const projected=(parseFloat(l.solde)||0)+versement;
     return `
       <div class="card" style="border-top:4px solid ${l.couleur||'#3b82f6'}">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;width:100%">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;width:100%">
           <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
-            <div style="width:16px;height:16px;border-radius:50%;background:${l.couleur||'#3b82f6'};flex-shrink:0"></div>
-            <input type="text" value="${esc(l.nom)}" style="font-size:18px;font-weight:700;border:none;padding:0;background:transparent;width:100%;min-width:0" oninput="window.patch('livrets','${l.id}','nom',this.value)">
+            <div style="width:16px;height:16px;border-radius:50%;background:${l.couleur||'#3b82f6'};flex-shrink:0;margin-top:3px"></div>
+            <span style="font-size:18px;font-weight:700;word-break:break-word;white-space:normal;line-height:1.3">${esc(l.nom)}</span>
           </div>
-          <button class="btn btn-danger btn-sm" onclick="window.deleteLivret('${l.id}')">Supprimer</button>
+          <button class="btn btn-danger btn-sm" style="flex-shrink:0" onclick="window.deleteLivret('${l.id}')">Supprimer</button>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
           <div class="stat-card" style="box-shadow:none;border:1px solid #e2e8f0"><div class="stat-label">Solde actuel</div><div class="stat-value" style="color:${l.couleur||'#3b82f6'}">${fmt(l.solde)}</div></div>
@@ -738,7 +738,11 @@ function renderEpargne(){
           <div class="stat-card" style="box-shadow:none;border:1px solid #e2e8f0"><div class="stat-label">Solde projeté</div><div class="stat-value" style="color:${l.couleur||'#3b82f6'}">${fmt(projected)}</div></div>
         </div>
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-          <label style="font-size:13px;color:#94a3b8">Mettre à jour le solde :</label>
+          <label style="font-size:13px;color:#94a3b8">Nom :</label>
+          <input type="text" value="${esc(l.nom)}" style="flex:1;min-width:160px" oninput="window.patch('livrets','${l.id}','nom',this.value)">
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:8px">
+          <label style="font-size:13px;color:#94a3b8">Solde :</label>
           <input type="number" value="${l.solde||0}" step="0.01" style="width:140px" onchange="window.updateSolde('${l.id}',parseFloat(this.value)||0)">
           <label style="font-size:13px;color:#94a3b8">Couleur :</label>
           <input type="color" value="${l.couleur||'#3b82f6'}" style="width:36px;height:36px;border:none;cursor:pointer;border-radius:6px;padding:2px" onchange="window.patch('livrets','${l.id}','couleur',this.value)">
