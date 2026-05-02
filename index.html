@@ -728,7 +728,7 @@ function renderEpargne(){
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
           <div style="display:flex;align-items:center;gap:10px">
             <div style="width:16px;height:16px;border-radius:50%;background:${l.couleur||'#3b82f6'};flex-shrink:0"></div>
-            <input type="text" value="${esc(l.nom)}" style="font-size:18px;font-weight:700;border:none;padding:0;background:transparent;min-width:80px" oninput="window.patch('livrets','${l.id}','nom',this.value)">
+            <input type="text" value="${esc(l.nom)}" style="font-size:18px;font-weight:700;border:none;padding:0;background:transparent;min-width:200px;max-width:400px;width:100%" oninput="window.patch('livrets','${l.id}','nom',this.value)">
           </div>
           <button class="btn btn-danger btn-sm" onclick="window.deleteLivret('${l.id}')">Supprimer</button>
         </div>
