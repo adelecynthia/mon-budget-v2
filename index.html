@@ -82,6 +82,10 @@
     .repart-legend-item { display: flex; align-items: center; gap: 4px; font-size: 12px; }
     .repart-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
     .show-hidden-link { font-size: 12px; color: var(--blue); background: none; border: none; cursor: pointer; padding: 4px 0; text-decoration: underline; font-family: inherit; }
+    .coche-btn { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--gray-200); background: none; cursor: pointer; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: white; transition: all .2s; }
+    .coche-btn:hover { border-color: var(--green); background: #d1fae5; color: var(--green); }
+    .coche-btn.coche-active { border-color: var(--green); background: var(--green); color: white; }
+    .row-prelevee { opacity: .65; }
     .note-card { border: 1px solid var(--gray-200); border-radius: 10px; padding: 12px; margin-bottom: 8px; }
     .note-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--gray-100); flex-wrap: wrap; gap: 8px; }
@@ -478,6 +482,12 @@ window.deleteRow=function(section,id){
 // ─── TOGGLE MASK ─────────────────────────────────────────────
 window.toggleMask=function(key){ if(data.ui)data.ui[key]=!data.ui[key]; saveData(); render(); };
 
+window.togglePrelevee=function(id){
+  const m=getMoisData(activeMois);
+  const d=(m.depensesFixes||[]).find(x=>x.id===id);
+  if(d){ d.prelevee=!d.prelevee; saveData(); render(); }
+};
+
 // ─── RENDER SAISIE ───────────────────────────────────────────
 function renderSaisie(){
   const m=getMoisData(activeMois);
@@ -493,10 +503,11 @@ function renderSaisie(){
     </div>`).join('');
 
   const fixRows=sorted(m.depensesFixes||[]).map(d=>`
-    <div class="row-item" data-id="${d.id}">
+    <div class="row-item${d.prelevee?' row-prelevee':''}" data-id="${d.id}">
       <span class="drag-handle" title="Glisser pour réordonner">☰</span>
-      <div class="row-libelle"><input type="text" value="${esc(d.libelle)}" placeholder="Libellé" oninput="window.patch('depensesFixes','${d.id}','libelle',this.value)"></div>
-      <div class="row-montant"><input type="number" value="${d.montant||0}" step="0.01" placeholder="0" onchange="window.patch('depensesFixes','${d.id}','montant',parseFloat(this.value)||0)"></div>
+      <button class="coche-btn${d.prelevee?' coche-active':''}" onclick="window.togglePrelevee('${d.id}')" title="${d.prelevee?'Marquer non prélevé':'Marquer prélevé'}">${d.prelevee?'✓':''}</button>
+      <div class="row-libelle"><input type="text" value="${esc(d.libelle)}" placeholder="Libellé" style="${d.prelevee?'text-decoration:line-through;color:#94a3b8':''}" oninput="window.patch('depensesFixes','${d.id}','libelle',this.value)"></div>
+      <div class="row-montant"><input type="number" value="${d.montant||0}" step="0.01" placeholder="0" style="${d.prelevee?'color:#94a3b8':''}" onchange="window.patch('depensesFixes','${d.id}','montant',parseFloat(this.value)||0)"></div>
       <div class="row-categorie"><select onchange="window.patch('depensesFixes','${d.id}','categorie',this.value)">${catOpts(CAT_FIXES,d.categorie||'Autre')}</select></div>
       <button class="btn-delete" onclick="window.deleteRow('depensesFixes','${d.id}')" title="Supprimer">×</button>
     </div>`).join('');
@@ -517,7 +528,12 @@ function renderSaisie(){
       <div data-drag-section="revenus">${revRows||'<p style="color:#94a3b8;font-size:13px;padding:8px 0">Aucun revenu. Ajoutez-en un.</p>'}</div>
     </div>
     <div class="card">
-      <div class="section-header"><span class="section-title">📌 Dépenses fixes</span><button class="btn btn-ghost btn-sm" onclick="window.addRow('depensesFixes')">+ Ajouter</button></div>
+      <div class="section-header">
+        <span class="section-title">📌 Dépenses fixes
+          ${(()=>{ const total=m.depensesFixes.length; const done=m.depensesFixes.filter(d=>d.prelevee).length; return total>0?` <span style="font-size:12px;font-weight:400;color:${done===total?'#10b981':'#94a3b8'};margin-left:6px">${done}/${total} prélevées</span>`:''; })()}
+        </span>
+        <button class="btn btn-ghost btn-sm" onclick="window.addRow('depensesFixes')">+ Ajouter</button>
+      </div>
       <div data-drag-section="depensesFixes">${fixRows||'<p style="color:#94a3b8;font-size:13px;padding:8px 0">Aucune dépense fixe.</p>'}</div>
     </div>
     <div class="card">
