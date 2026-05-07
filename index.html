@@ -165,6 +165,7 @@ const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').repl
 let codeSecret = localStorage.getItem('budgetCode')||null;
 let db = null, unsubscribe = null;
 let syncStatus = 'offline', lastSync = null, saveTimer = null;
+let lastLocalSave = 0, firebaseReady = false;
 let activeTab = 'saisie';
 const today = new Date();
 let activeMois = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
@@ -193,23 +194,54 @@ async function saveFirebase(){
   renderSyncIndicator();
 }
 
-function saveData(){ lastLocalSave=Date.now(); saveLocal(); debounceFirebase(); }
+function saveData(){
+  lastLocalSave=Date.now();
+  data._lastSaved=lastLocalSave;
+  saveLocal();
+  if(firebaseReady) debounceFirebase();
+}
 
-let lastLocalSave = 0;
+function countEntries(d){
+  return Object.values(d.donnees||{}).reduce((s,m)=>
+    s+(m.revenus||[]).length+(m.depensesFixes||[]).length+(m.depensesVariables||[]).length,0)
+    +(d.livrets||[]).length+(d.notes||[]).length;
+}
 
 function startFirebaseSync(){
   if(!db||!codeSecret)return;
   if(unsubscribe)unsubscribe();
+  firebaseReady=false;
   unsubscribe=onSnapshot(doc(db,'users',codeSecret,'data','budget'),(snap)=>{
-    if(snap.exists()){
-      // Skip re-render if triggered by our own write (within 2s) or user is typing
-      const isTyping = document.activeElement && (document.activeElement.tagName==='INPUT'||document.activeElement.tagName==='TEXTAREA'||document.activeElement.tagName==='SELECT');
-      const isOwnWrite = (Date.now()-lastLocalSave) < 2000;
-      data=migrateV1(snap.data()); saveLocal(); syncStatus='synced'; lastSync=new Date();
-      if(!isTyping && !isOwnWrite) render();
-      renderSyncIndicator();
+    const isTyping=document.activeElement&&['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName);
+    const isOwnWrite=(Date.now()-lastLocalSave)<2000;
+    const remoteRaw=snap.exists()?snap.data():null;
+    const remoteTs=(remoteRaw&&remoteRaw._lastSaved)||0;
+    const localTs=data._lastSaved||0;
+
+    // Update local from Firestore only if not our own write AND remote is newer/richer
+    if(remoteRaw&&!isOwnWrite){
+      const remoteRicher=countEntries(remoteRaw)>countEntries(data);
+      if(remoteTs>localTs||(remoteTs===0&&localTs===0&&remoteRicher)){
+        data=migrateV1(remoteRaw); saveLocal();
+        if(!isTyping) render();
+      }
     }
-  },()=>{ syncStatus='offline'; renderSyncIndicator(); });
+
+    // On first snapshot: decide sync direction
+    if(!firebaseReady){
+      firebaseReady=true;
+      if(!remoteRaw){
+        saveFirebase(); // Firestore vide — on pousse les données locales
+      } else {
+        const localRicher=countEntries(data)>countEntries(remoteRaw);
+        if(localTs>remoteTs||(localTs===0&&remoteTs===0&&localRicher)){
+          saveFirebase(); // Local plus récent ou plus riche — on pousse vers Firestore
+        }
+      }
+    }
+
+    syncStatus='synced'; lastSync=new Date(); renderSyncIndicator();
+  },()=>{ syncStatus='offline'; renderSyncIndicator(); firebaseReady=true; });
 }
 
 // ─── MOIS DATA ───────────────────────────────────────────────
