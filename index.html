@@ -118,7 +118,7 @@
   </div>
   <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, doc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getFirestore, doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // ─── CONFIG ──────────────────────────────────────────────────
 const firebaseConfig = {
@@ -163,9 +163,8 @@ const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').repl
 
 // ─── STATE ───────────────────────────────────────────────────
 let codeSecret = localStorage.getItem('budgetCode')||null;
-let db = null, unsubscribe = null;
+let db = null;
 let syncStatus = 'offline', lastSync = null, saveTimer = null;
-let lastLocalSave = 0, firebaseReady = false;
 let activeTab = 'saisie';
 const today = new Date();
 let activeMois = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
@@ -194,55 +193,7 @@ async function saveFirebase(){
   renderSyncIndicator();
 }
 
-function saveData(){
-  lastLocalSave=Date.now();
-  data._lastSaved=lastLocalSave;
-  saveLocal();
-  if(firebaseReady) debounceFirebase();
-}
-
-function countEntries(d){
-  return Object.values(d.donnees||{}).reduce((s,m)=>
-    s+(m.revenus||[]).length+(m.depensesFixes||[]).length+(m.depensesVariables||[]).length,0)
-    +(d.livrets||[]).length+(d.notes||[]).length;
-}
-
-function startFirebaseSync(){
-  if(!db||!codeSecret)return;
-  if(unsubscribe)unsubscribe();
-  firebaseReady=false;
-  unsubscribe=onSnapshot(doc(db,'users',codeSecret,'data','budget'),(snap)=>{
-    const isTyping=document.activeElement&&['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName);
-    const isOwnWrite=(Date.now()-lastLocalSave)<2000;
-    const remoteRaw=snap.exists()?snap.data():null;
-    const remoteTs=(remoteRaw&&remoteRaw._lastSaved)||0;
-    const localTs=data._lastSaved||0;
-
-    // Update local from Firestore only if not our own write AND remote is newer/richer
-    if(remoteRaw&&!isOwnWrite){
-      const remoteRicher=countEntries(remoteRaw)>countEntries(data);
-      if(remoteTs>localTs||(remoteTs===0&&localTs===0&&remoteRicher)){
-        data=migrateV1(remoteRaw); saveLocal();
-        if(!isTyping) render();
-      }
-    }
-
-    // On first snapshot: decide sync direction
-    if(!firebaseReady){
-      firebaseReady=true;
-      if(!remoteRaw){
-        saveFirebase(); // Firestore vide — on pousse les données locales
-      } else {
-        const localRicher=countEntries(data)>countEntries(remoteRaw);
-        if(localTs>remoteTs||(localTs===0&&remoteTs===0&&localRicher)){
-          saveFirebase(); // Local plus récent ou plus riche — on pousse vers Firestore
-        }
-      }
-    }
-
-    syncStatus='synced'; lastSync=new Date(); renderSyncIndicator();
-  },()=>{ syncStatus='offline'; renderSyncIndicator(); firebaseReady=true; });
-}
+function saveData(){ saveLocal(); debounceFirebase(); }
 
 // ─── MOIS DATA ───────────────────────────────────────────────
 function getMoisData(mois){
@@ -365,12 +316,48 @@ window.submitCode=function(){
   initApp();
 };
 
+// ─── CLOUD SYNC ──────────────────────────────────────────────
+async function loadFromFirestore(){
+  if(!db||!codeSecret)return false;
+  try{
+    const snap=await getDoc(doc(db,'users',codeSecret,'data','budget'));
+    if(snap.exists()){ data=migrateV1(snap.data()); saveLocal(); return true; }
+  }catch(e){}
+  return false;
+}
+
+window.loadFromCloud=async function(){
+  if(!db||!codeSecret){ alert('Pas de connexion Firebase.'); return; }
+  if(!confirm('Charger les données depuis le cloud va remplacer vos données locales.\n\nContinuer ?'))return;
+  syncStatus='syncing'; renderSyncIndicator();
+  const ok=await loadFromFirestore();
+  syncStatus=ok?'synced':'offline'; lastSync=ok?new Date():null;
+  renderSyncIndicator(); render();
+  alert(ok?'✅ Données chargées depuis le cloud !':'Aucune donnée trouvée dans le cloud pour ce code.');
+};
+
+window.forceSync=async function(){
+  if(!db||!codeSecret){ alert('Pas de connexion Firebase.'); return; }
+  syncStatus='syncing'; renderSyncIndicator();
+  await saveFirebase();
+  alert('✅ Données envoyées vers le cloud !');
+};
+
 // ─── INIT ────────────────────────────────────────────────────
 async function initApp(){
   const app=initializeApp(firebaseConfig);
   db=getFirestore(app);
   loadLocal();
-  startFirebaseSync();
+  // Si pas de données locales → tenter de charger depuis Firestore
+  const localVide=!Object.keys(data.donnees||{}).length&&!(data.livrets||[]).length;
+  if(localVide){
+    syncStatus='syncing'; render(); renderSyncIndicator();
+    const ok=await loadFromFirestore();
+    syncStatus=ok?'synced':'offline'; lastSync=ok?new Date():null;
+  }else{
+    syncStatus='synced';
+    debounceFirebase(); // pousser le local vers Firestore en arrière-plan
+  }
   render();
 }
 
@@ -898,9 +885,10 @@ function renderReglages(){
       </div>
       <div class="settings-row">
         <span class="settings-label">Synchronisation Firebase</span>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span class="settings-value">${syncLabel}</span>
-          <button class="btn btn-ghost btn-sm" onclick="window.forceSync()">☁️ Forcer la sync</button>
+          <button class="btn btn-ghost btn-sm" onclick="window.forceSync()">⬆️ Envoyer vers le cloud</button>
+          <button class="btn btn-ghost btn-sm" onclick="window.loadFromCloud()">⬇️ Charger depuis le cloud</button>
         </div>
       </div>
       <div class="settings-row">
@@ -941,8 +929,7 @@ window.changeCode=function(){
   if(!/^[a-zA-Z0-9\-]{6,}$/.test(c)){ alert('Code invalide — 6+ caractères, lettres/chiffres/tirets uniquement.'); return; }
   if(!confirm(`Changer le code pour "${c}" ?\n\nVos données seront déplacées vers ce nouveau code sur Firestore. L'ancien code ne donnera plus accès à ces données.`))return;
   codeSecret=c; localStorage.setItem('budgetCode',c);
-  if(unsubscribe)unsubscribe();
-  startFirebaseSync(); saveFirebase(); render();
+  saveFirebase(); render();
 };
 window.doExport=exportData;
 window.doImport=function(file){ if(file)importData(file); };
