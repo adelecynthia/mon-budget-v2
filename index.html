@@ -184,12 +184,18 @@ function saveLocal(){ localStorage.setItem('budgetData',JSON.stringify(data)); }
 function debounceFirebase(){ clearTimeout(saveTimer); saveTimer=setTimeout(saveFirebase,500); }
 
 async function saveFirebase(){
-  if(!db||!codeSecret)return;
+  if(!db){ console.error('[Budget] db non initialisé'); syncStatus='offline'; renderSyncIndicator(); return; }
+  if(!codeSecret){ console.error('[Budget] codeSecret vide'); syncStatus='offline'; renderSyncIndicator(); return; }
   try{
     syncStatus='syncing'; renderSyncIndicator();
     await setDoc(doc(db,'users',codeSecret,'data','budget'), JSON.parse(JSON.stringify(data)));
     syncStatus='synced'; lastSync=new Date();
-  }catch(e){ syncStatus='offline'; }
+  }catch(e){
+    syncStatus='offline';
+    console.error('[Budget] Erreur Firebase:', e.code, e.message);
+    const el=document.getElementById('sync-error');
+    if(el) el.textContent=`⚠️ Erreur sync: ${e.code||e.message}`;
+  }
   renderSyncIndicator();
 }
 
@@ -891,6 +897,7 @@ function renderReglages(){
           <button class="btn btn-ghost btn-sm" onclick="window.loadFromCloud()">⬇️ Charger depuis le cloud</button>
         </div>
       </div>
+      <div id="sync-error" style="color:#ef4444;font-size:13px;padding:4px 0"></div>
       <div class="settings-row">
         <span class="settings-label">Données</span>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
