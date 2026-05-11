@@ -265,7 +265,7 @@ function getMoisData(mois){
         versements:data.livrets.map(l=>({id:uid(),livretId:l.id,montant:0}))
       };
     }
-    saveData();
+    saveLocal(); // saveLocal only — never write to Firebase during init
   }
   return data.donnees[mois];
 }
