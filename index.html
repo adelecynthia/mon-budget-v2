@@ -896,7 +896,13 @@ function renderReglages(){
           <button class="btn btn-ghost btn-sm" onclick="window.changeCode()">Changer</button>
         </div>
       </div>
-      <div class="settings-row"><span class="settings-label">Synchronisation Firebase</span><span class="settings-value">${syncLabel}</span></div>
+      <div class="settings-row">
+        <span class="settings-label">Synchronisation Firebase</span>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span class="settings-value">${syncLabel}</span>
+          <button class="btn btn-ghost btn-sm" onclick="window.forceSync()">☁️ Forcer la sync</button>
+        </div>
+      </div>
       <div class="settings-row">
         <span class="settings-label">Données</span>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -923,6 +929,12 @@ service cloud.firestore {
 }</pre>
     </div>`;
 }
+window.forceSync=function(){
+  if(!db||!codeSecret){ alert('Pas de connexion Firebase.'); return; }
+  data._lastSaved=Date.now();
+  saveLocal();
+  saveFirebase().then(()=>{ alert('✅ Données envoyées vers Firestore !'); render(); });
+};
 window.changeCode=function(){
   const c=prompt('Nouveau code secret (6+ caractères, lettres/chiffres/tirets) :');
   if(!c)return;
